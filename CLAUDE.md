@@ -32,6 +32,11 @@ VM's Spotify is not logged in):
 2. `node tools/cdp.mjs eval '<js>'` runs JS in the Spotify page (click buttons by `aria-label`, read
    layout); `node tools/cdp.mjs shot out.png` screenshots only the Spotify page. Look at the PNG.
 3. Full-screen button labels: `Enter Full screen` / `Exit full screen` (different case).
+4. Test idle states for real: leave the mouse still ~20 s, then screenshot *and* check computed
+   `opacity`/`visibility`. A hit-test (`elementFromPoint`) passes on an element faded to opacity 0, and
+   forcing a class by hand does not reproduce what Spotify's own idle state does.
+
+User preferences: never show the right sidebar (hidden by `windowedFullscreen.js`, also outside full screen).
 
 Fallback when the host can't be used: the QEMU VM `lg-gnome50` (libvirt user session, `qemu:///session`,
 files in `~/VMs/lg-gnome50`). Needs a one-time Spotify login by the user there. Full VM details are in

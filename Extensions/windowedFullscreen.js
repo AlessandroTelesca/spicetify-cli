@@ -51,9 +51,24 @@
     html.wfs-cinema ${CINEMA} {
       grid-column-start: main-view !important;
     }
-    /* When the mouse is idle Spotify adds --controls-hidden, which slides the
-       view down over the player bar (negative margin + higher z-index).
-       Keep the player bar visible all the time. */
+    /* Idle mode (mouse not moving): Spotify fades the player bar to
+       opacity 0 and shows a big track-title overlay in the view. Keep the
+       player bar visible all the time and drop the overlay. */
+    html.wfs-cinema .Root__now-playing-bar,
+    html.wfs-cinema .Root__now-playing-bar .main-nowPlayingBar-container {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    html.wfs-cinema ${CINEMA} .main-trackInfo-overlay {
+      display: none !important;
+    }
+    /* The user never wants the right sidebar (Now Playing panel, queue,
+       lyrics...). The grid column is "auto", so hiding it frees the space. */
+    .Root__right-sidebar {
+      display: none !important;
+    }
+    /* --controls-hidden also slides the view down over the player bar
+       (negative margin + higher z-index). */
     html.wfs-cinema ${CINEMA}.Root__cinema-view--controls-hidden {
       margin-bottom: 0 !important;
       z-index: var(--above-everything-except-now-playing-bar-z-index) !important;
