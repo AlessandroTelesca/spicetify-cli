@@ -33,6 +33,11 @@ toggle GNOME extensions, monitors) are in `~/GIT/simple-gnome-shell/CLAUDE.md`.
   `WAYLAND_DISPLAY=wayland-0` / `DISPLAY=:0`).
 - In the VM Spotify is a *user* Flatpak (`~/.local/share/flatpak/...`), so spicetify needs no chmod there.
   Spotify must be logged in once in the VM (by the user, via virt-manager) before the main UI loads.
+- The VM runs `lg-mpris-mock.service` (a fake player owning `org.mpris.MediaPlayer2.spotify`, used by the
+  GNOME extension tests). Real Spotify sees that name and exits silently, so
+  `systemctl --user stop lg-mpris-mock.service` before launching Spotify, and `start` it again when done.
+- Launch from SSH (Spotify is X11-only there, same Flatpak override as the host):
+  `systemd-run --user --collect --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$(ls /run/user/1000/.mutter-Xwaylandauth.*) flatpak run com.spotify.Client --remote-debugging-port=9333`
 - Run Spotify with `--remote-debugging-port=9333`, forward it with `ssh -L 9333:127.0.0.1:9333 ...`, and
   drive/inspect the page over CDP (Node 22 has a global `WebSocket`; `Runtime.evaluate`).
 - Screenshots: `virsh -c qemu:///session screenshot lg-gnome50 out.ppm --screen 1` (1920x1080 primary),
