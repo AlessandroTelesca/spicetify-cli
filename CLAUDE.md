@@ -22,11 +22,20 @@ Commit and push directly on `main`.
 - Remote debugging: port 9222 is TeamSpeak's. Use `--remote-debugging-port=9333` for Spotify and never
   send commands to the TeamSpeak target.
 
-## Testing: visual checks in the VM (required for UI changes)
+## Testing: do visual checks yourself (required for UI changes)
 
-Do visual checks yourself in the QEMU VM `lg-gnome50` (libvirt user session, `qemu:///session`, files in
-`~/VMs/lg-gnome50`) instead of asking the user for screenshots. Full VM details (pointer device, don't
-toggle GNOME extensions, monitors) are in `~/GIT/simple-gnome-shell/CLAUDE.md`.
+Never ask the user for screenshots. Check UI changes yourself on the host Spotify (the user said to; the
+VM's Spotify is not logged in):
+
+1. `spicetify apply` restarts Spotify *without* a debug port, so afterwards:
+   `pkill -x spotify; sleep 3; systemd-run --user --collect --quiet flatpak run com.spotify.Client --remote-debugging-port=9333`
+2. `node tools/cdp.mjs eval '<js>'` runs JS in the Spotify page (click buttons by `aria-label`, read
+   layout); `node tools/cdp.mjs shot out.png` screenshots only the Spotify page. Look at the PNG.
+3. Full-screen button labels: `Enter Full screen` / `Exit full screen` (different case).
+
+Fallback when the host can't be used: the QEMU VM `lg-gnome50` (libvirt user session, `qemu:///session`,
+files in `~/VMs/lg-gnome50`). Needs a one-time Spotify login by the user there. Full VM details are in
+`~/GIT/simple-gnome-shell/CLAUDE.md`.
 
 - SSH: `ssh -i ~/VMs/lg-gnome50/id_ed25519 -o UserKnownHostsFile=~/VMs/lg-gnome50/known_hosts -p 2222 lg@127.0.0.1`
   (for D-Bus/GUI commands set `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus` and

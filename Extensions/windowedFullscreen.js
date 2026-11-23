@@ -1,95 +1,55 @@
-// windowedFullscreen: keep Spotify's full-screen view inside the window
-// instead of taking over the whole screen.
+// NAME: Windowed Fullscreen
+// DESCRIPTION: Spotify's full-screen button keeps the view inside the window
+// and leaves the left library sidebar visible.
+
 (function windowedFullscreen() {
   let fakeEl = null;
+  const root = document.documentElement;
 
-  const fire = (el) => {
-    const ev = new Event("fullscreenchange", { bubbles: true });
-    (el || document).dispatchEvent(ev);
-    document.dispatchEvent(new Event("fullscreenchange"));
-  };
+  // Spotify's full-screen view is the "cinema view": it spans the
+  // left-sidebar..right-sidebar grid columns and slides the library sidebar
+  // off-screen with a transform. Undo both while in windowed full screen.
+  const style = document.createElement("style");
+  style.id = "windowed-fullscreen";
+  style.textContent = `
+    html.windowed-fullscreen .Root__nav-bar {
+      transform: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    html.windowed-fullscreen .Root__cinema-view {
+      grid-column-start: main-view !important;
+    }
+  `;
+  (document.head || root).appendChild(style);
 
-  Object.defineProperty(Document.prototype, "fullscreenElement", {
-    configurable: true,
-    get() { return fakeEl; },
-  });
-  Object.defineProperty(Document.prototype, "webkitFullscreenElement", {
-    configurable: true,
-    get() { return fakeEl; },
-  });
+  const fire = () => document.dispatchEvent(new Event("fullscreenchange"));
+
+  // Fake the Fullscreen API so the window itself never goes full screen.
+  for (const prop of ["fullscreenElement", "webkitFullscreenElement"]) {
+    Object.defineProperty(Document.prototype, prop, {
+      configurable: true,
+      get() { return fakeEl; },
+    });
+  }
 
   Element.prototype.requestFullscreen = function () {
     fakeEl = this;
-    document.documentElement.classList.add("windowed-fullscreen");
-    setTimeout(() => fire(this), 0);
+    root.classList.add("windowed-fullscreen");
+    setTimeout(fire, 0);
     return Promise.resolve();
   };
   Element.prototype.webkitRequestFullscreen = Element.prototype.requestFullscreen;
 
   Document.prototype.exitFullscreen = function () {
-    const el = fakeEl;
     fakeEl = null;
-    document.documentElement.classList.remove("windowed-fullscreen");
-    setTimeout(() => fire(el), 0);
+    root.classList.remove("windowed-fullscreen");
+    setTimeout(fire, 0);
     return Promise.resolve();
   };
   Document.prototype.webkitExitFullscreen = Document.prototype.exitFullscreen;
 
-  // Keep the left library sidebar visible: squeeze the full-screen overlay
-  // into the space to the right of it.
-  const sidebar = () =>
-    document.getElementById("Desktop_LeftSidebar_Id") ||
-    document.querySelector(".Root__nav-bar");
-
-  const overlays = () => {
-    const vw = innerWidth, vh = innerHeight, out = [];
-    for (const el of document.body.querySelectorAll("*")) {
-      const cs = getComputedStyle(el);
-      if (cs.position !== "fixed" && cs.position !== "absolute") continue;
-      const r = el.getBoundingClientRect();
-      if (r.left <= 1 && r.top <= 1 && r.width >= vw - 2 && r.height >= vh - 2 &&
-          !el.contains(sidebar()) && !el.closest("[data-wfs]")) out.push(el);
-    }
-    // keep only outermost matches
-    return out.filter((el) => !out.some((o) => o !== el && o.contains(el)));
-  };
-
-  let squeezed = [];
-  const squeeze = () => {
-    const sb = sidebar();
-    if (!fakeEl || !sb) return;
-    const left = Math.round(sb.getBoundingClientRect().right);
-    for (const el of overlays()) {
-      el.dataset.wfs = "";
-      squeezed.push(el);
-    }
-    for (const el of squeezed) {
-      el.style.setProperty("left", left + "px", "important");
-      el.style.setProperty("width", `calc(100vw - ${left}px)`, "important");
-      el.style.setProperty("right", "auto", "important");
-    }
-    sb.style.setProperty("z-index", "2147483647", "important");
-    sb.style.setProperty("position", "relative", "important");
-  };
-  const unsqueeze = () => {
-    for (const el of squeezed) {
-      delete el.dataset.wfs;
-      ["left", "width", "right"].forEach((p) => el.style.removeProperty(p));
-    }
-    squeezed = [];
-    const sb = sidebar();
-    if (sb) ["z-index", "position"].forEach((p) => sb.style.removeProperty(p));
-  };
-
-  document.addEventListener("fullscreenchange", () => {
-    if (fakeEl) {
-      // overlay renders a moment after the event; retry briefly
-      [50, 200, 600].forEach((t) => setTimeout(squeeze, t));
-    } else unsqueeze();
-  });
-  addEventListener("resize", () => fakeEl && squeeze());
-
-  // Real fullscreen would be left with Esc; mimic that.
+  // Real full screen is left with Esc; mimic that.
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && fakeEl) document.exitFullscreen();
   }, true);
