@@ -116,6 +116,21 @@
     html[data-transition]::view-transition-new(global-nav-bar) {
       animation: none !important;
     }
+    /* Blurred album-art background (replaces Spotify's flat color). Lives
+       inside Spotify's background plane, so it stays behind everything. */
+    .wfs-blur-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .wfs-blur-layer {
+      position: absolute;
+      inset: -20%;
+      background: center / cover no-repeat;
+      filter: blur(80px) saturate(1.4) brightness(0.6);
+      transform: translateZ(0);
+    }
     @keyframes wfs-fade-in { from { opacity: 0; } }
     @keyframes wfs-fade-out { to { opacity: 0; } }
     /* Idle mode (mouse not moving): Spotify fades the player bar to
@@ -123,6 +138,14 @@
        player bar visible all the time and drop the overlay. */
     html.wfs-cinema .Root__now-playing-bar,
     html.wfs-cinema .Root__now-playing-bar .main-nowPlayingBar-container {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    /* Idle mode also fades out the top bar and the view's header (title +
+       buttons). Keep them. The header is found by the button it contains,
+       since its class names are generated. */
+    html.wfs-cinema .Root__globalNav,
+    html.wfs-cinema ${CINEMA} :has(button[aria-label="Minimize Now Playing view"]) {
       opacity: 1 !important;
       visibility: visible !important;
     }
@@ -171,7 +194,75 @@
       el.removeAttribute("inert");
     }
   };
-  new MutationObserver(sync).observe(root, {
+  // --- Blurred album-art background --------------------------------------
+  const BG = "wfs-blur-bg";
+  const coverUrl = () => {
+    const m = window.Spicetify?.Player?.data?.item?.metadata;
+    const u = m?.image_xlarge_url || m?.image_large_url || m?.image_url;
+    if (!u) return null;
+    return u.startsWith("spotify:image:") ? "https://i.scdn.co/image/" + u.slice(14) : u;
+  };
+  // Spotify's background plane: the gradient element at z-index -1.
+  const findPlane = (cinema) =>
+    [...cinema.querySelectorAll("*")].find((e) => {
+      const st = getComputedStyle(e);
+      return st.zIndex === "-1" && st.backgroundImage.includes("gradient");
+    });
+
+  const setCover = (host, url) => {
+    if (!url || host.dataset.url === url) return;
+    host.dataset.url = url;
+    const img = new Image();
+    img.src = url;
+    img.decode().catch(() => {}).then(() => {
+      if (host.dataset.url !== url) return; // song changed meanwhile
+      const layer = document.createElement("div");
+      layer.className = "wfs-blur-layer";
+      layer.style.backgroundImage = `url("${url}")`;
+      host.appendChild(layer);
+      layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease" })
+        .finished.then(() => { while (host.children.length > 1) host.firstChild.remove(); });
+    });
+  };
+
+  // Spotify gives each track card its own background plane (a new one slides
+  // in on song change). Find the plane's class once, then give every plane
+  // a blur host as soon as it appears; a new host gets the current cover.
+  let planeClass = null;
+  let searchSince = 0;
+  const ensureBg = () => {
+    const cinema = document.querySelector(CINEMA);
+    if (!cinema) { searchSince = 0; return; }
+    if (!planeClass) {
+      // Searching is not free; give up after a few seconds without a plane.
+      searchSince ||= Date.now();
+      if (Date.now() - searchSince > 5000) return;
+      const plane = findPlane(cinema);
+      if (!plane) return;
+      planeClass = plane.classList[0];
+    }
+    for (const plane of cinema.getElementsByClassName(planeClass)) {
+      if (plane.querySelector(":scope > ." + BG)) continue;
+      const host = document.createElement("div");
+      host.className = BG;
+      plane.appendChild(host);
+      setCover(host, coverUrl());
+    }
+  };
+  // A song change may reuse the newest plane: give it the new cover.
+  const onSongChange = () => {
+    ensureBg();
+    const hosts = document.querySelectorAll(`${CINEMA} .${BG}`);
+    if (hosts.length) setCover(hosts[hosts.length - 1], coverUrl());
+  };
+
+  (function hookSongChange() {
+    const player = window.Spicetify?.Player;
+    if (!player?.addEventListener) return setTimeout(hookSongChange, 300);
+    player.addEventListener("songchange", () => setTimeout(onSongChange, 50));
+  })();
+
+  new MutationObserver(() => { sync(); ensureBg(); }).observe(root, {
     subtree: true,
     childList: true,
     attributes: true,
