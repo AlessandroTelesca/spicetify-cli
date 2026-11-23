@@ -56,3 +56,8 @@ files in `~/VMs/lg-gnome50`). Needs a one-time Spotify login by the user there. 
   drive/inspect the page over CDP (Node 22 has a global `WebSocket`; `Runtime.evaluate`).
 - Screenshots: `virsh -c qemu:///session screenshot lg-gnome50 out.ppm --screen 1` (1920x1080 primary),
   convert to PNG and look at it before reporting a UI change as working.
+
+Focus-dependent behavior (auto full screen when the window is unfocused): `wmctrl -b add,hidden` does not
+minimize under GNOME. Build `cc -O2 -o <scratch>/xwin tools/xwin.c -lX11` and use `xwin min <id>` /
+`xwin activate <id>` (window id from `wmctrl -lx`, with `DISPLAY=:0 XAUTHORITY=/run/user/1000/.mutter-Xwaylandauth.*`).
+Check `document.hasFocus()` and `xprop -id <id> WM_STATE` after each step; start each run from a known state.

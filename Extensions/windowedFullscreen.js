@@ -119,10 +119,56 @@
     if (e.target.closest?.(SIDEBAR)) sidebarClickAt = Date.now();
   }, true);
 
+  // Leaving full screen drops back to the expanded (windowed) Now Playing
+  // view a moment later; minimize that too, retrying until it is gone.
   const closeCinema = () => {
     if (fakeEl) document.exitFullscreen();
-    document.querySelector('button[aria-label="Minimize Now Playing view"]')?.click();
+    let tries = 0;
+    const minimize = () => {
+      if (!document.querySelector(CINEMA) || tries++ > 10) return;
+      document.querySelector('button[aria-label="Minimize Now Playing view"]')?.click();
+      setTimeout(minimize, 200);
+    };
+    setTimeout(minimize, 150);
   };
+
+  // --- 4. Auto mode ------------------------------------------------------
+  // While music plays and the Spotify window is not focused, show the
+  // full-screen view; leave it again when the window gets focus or playback
+  // pauses. Only views opened here are closed automatically, so a view the
+  // user opened by hand is left alone.
+  let autoOpened = false;
+  let blurTimer = null;
+
+  const isPlaying = () => !!window.Spicetify?.Player?.isPlaying?.();
+  const openAuto = () => {
+    if (document.hasFocus() || !isPlaying() || document.querySelector(CINEMA)) return;
+    const btn = document.querySelector('.Root__now-playing-bar button[aria-label="Enter Full screen"]');
+    if (!btn) return;
+    btn.click();
+    autoOpened = true;
+  };
+  const closeAuto = () => {
+    clearTimeout(blurTimer);
+    if (!autoOpened) return;
+    autoOpened = false;
+    if (document.querySelector(CINEMA)) closeCinema();
+  };
+
+  window.addEventListener("blur", () => {
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(openAuto, 1000);
+  });
+  window.addEventListener("focus", closeAuto);
+
+  (function hookPlayer() {
+    const player = window.Spicetify?.Player;
+    if (!player?.addEventListener) return setTimeout(hookPlayer, 300);
+    player.addEventListener("onplaypause", () => {
+      // isPlaying() can lag the event slightly
+      setTimeout(() => (isPlaying() ? openAuto() : closeAuto()), 300);
+    });
+  })();
 
   (function hookHistory() {
     const history = window.Spicetify?.Platform?.History;
