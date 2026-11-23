@@ -61,3 +61,10 @@ Focus-dependent behavior (auto full screen when the window is unfocused): `wmctr
 minimize under GNOME. Build `cc -O2 -o <scratch>/xwin tools/xwin.c -lX11` and use `xwin min <id>` /
 `xwin activate <id>` (window id from `wmctrl -lx`, with `DISPLAY=:0 XAUTHORITY=/run/user/1000/.mutter-Xwaylandauth.*`).
 Check `document.hasFocus()` and `xprop -id <id> WM_STATE` after each step; start each run from a known state.
+
+Animations: `node tools/cdp.mjs frames <dir> <ms> '<js>'` records screencast frames while `<js>` runs (build a
+contact sheet with `magick montage`); `node tools/cdp.mjs profile <ms> '<js>'` prints top self-time functions.
+Spotify animates the Now Playing ("cinema") view with View Transitions (`html[data-transition=cinema-npv]`).
+`windowedFullscreen.js` replaces the opening transition with its own fade (Spotify shows the view's background
+only after `finished` resolves) and turns closing into a plain crossfade with sidebar/top bar/player bar still.
+The ~0.7 s before anything moves is Spotify's own synchronous render (visualizer + OverlayScrollbars), not ours.
