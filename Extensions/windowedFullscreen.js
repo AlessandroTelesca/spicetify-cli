@@ -51,12 +51,38 @@
     html.wfs-cinema ${CINEMA} {
       grid-column-start: main-view !important;
     }
+    /* When the mouse is idle Spotify adds --controls-hidden, which slides the
+       view down over the player bar (negative margin + higher z-index).
+       Keep the player bar visible all the time. */
+    html.wfs-cinema ${CINEMA}.Root__cinema-view--controls-hidden {
+      margin-bottom: 0 !important;
+      z-index: var(--above-everything-except-now-playing-bar-z-index) !important;
+      border-radius: inherit !important;
+    }
   `;
   (document.head || root).appendChild(style);
 
+  // Idle mode: after a few seconds without mouse movement Spotify adds
+  // --controls-hidden, which hides the view's top controls and slides the
+  // view over the player bar. Never let it switch to idle mode.
+  const HIDDEN = "Root__cinema-view--controls-hidden";
+  const idleObserver = new MutationObserver((records) => {
+    for (const r of records) if (r.target.classList.contains(HIDDEN)) r.target.classList.remove(HIDDEN);
+  });
+  let watched = null;
+
   const sync = () => {
-    const on = !!document.querySelector(CINEMA);
+    const cinema = document.querySelector(CINEMA);
+    const on = !!cinema;
     root.classList.toggle("wfs-cinema", on);
+    if (cinema !== watched) {
+      idleObserver.disconnect();
+      watched = cinema;
+      if (cinema) {
+        cinema.classList.remove(HIDDEN);
+        idleObserver.observe(cinema, { attributes: true, attributeFilter: ["class"] });
+      }
+    }
     if (!on) return;
     for (const el of document.querySelectorAll(`${SIDEBAR}[inert], [inert]:has(${SIDEBAR})`)) {
       el.inert = false;
