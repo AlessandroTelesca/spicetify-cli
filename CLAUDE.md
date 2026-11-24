@@ -10,6 +10,19 @@ Commit and push directly on `main`.
   - On the host, `~/.config/spicetify/Extensions/windowedFullscreen.js` is a symlink to this file, so
     `spicetify apply` + restarting Spotify picks up edits. The host runs the upstream spicetify binary
     (`~/.spicetify`, v2.46.7); building this fork is only needed for changes to the Go CLI.
+- `Extensions/hideAnnouncements.js`: hides the Home "Announcement" promo banner (Spotify's HPTO ad).
+  - Injects the CSS `[data-testid="home-ads-container"], [data-testid="home-ad-card"] { display: none !important; }`.
+    That container comes from Spotify's lazy chunk `Apps/xpui/home-ads-container.js` and mounts above
+    `.main-home-filterChipsContainer`.
+  - Fallback: a MutationObserver on `.Root__main-view`, batched per animation frame and active only while
+    `[data-testid=home-page]` is mounted. Among the Home section's siblings it hides any whose text equals the
+    localized label `Spicetify.Locale.get("ad-formats.announcement")` (fixed fallbacks: Announcement,
+    Ankündigung) and marks it `data-hide-announcement`.
+  - The ad doesn't load on every launch (refetched at most every 30 minutes). To test, remove the extension
+    from the config to get a BEFORE screenshot.
+  - Spotify's native toggle: Settings "Show announcements about new releases"
+    (`settings.showMusicAnnouncements`).
+  - The installed file is a symlink to the repo, like `windowedFullscreen.js`.
 
 ## Host setup
 
